@@ -1,0 +1,4 @@
+*.o
+tracer.skel.h
+vmlinux.h
+tracer
