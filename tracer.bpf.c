@@ -2,6 +2,7 @@
 
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_core_read.h>
+#include "event.h"
 
 char LICENSE[] SEC("license") = "GPL";
 
@@ -26,7 +27,11 @@ int handle_exec(struct trace_event_raw_sched_process_exec *ctx) {
     if(bpf_map_lookup_elem(&processes, &old) != NULL) {
         bpf_map_delete_elem(&processes, &old);
         bpf_map_update_elem(&processes, &new, &value, BPF_ANY);
-        bpf_ringbuf_output(&queue, &new, sizeof(new), 0);
+        struct exec_event *event = bpf_ringbuf_reserve(&queue, sizeof(struct exec_event), 0);
+        if(event == NULL)
+            return 0;
+        make_exec_event(event, new);
+        bpf_ringbuf_submit(event, 0);
     }
     return 0;
 }
@@ -38,8 +43,12 @@ int handle_fork(struct trace_event_raw_sched_process_fork *ctx) {
     int value = 0;
 
     if(bpf_map_lookup_elem(&processes, &parent) != NULL) {
-        struct task_struct *task = (void *)bpf_get_current_task();
         bpf_map_update_elem(&processes, &child, &value, BPF_ANY);
+        struct fork_event *event = bpf_ringbuf_reserve(&queue, sizeof(struct fork_event), 0);
+        if(event == NULL)
+            return 0;
+        make_fork_event(event, parent, child);
+        bpf_ringbuf_submit(event, 0);
     }
     return 0;
 }
@@ -48,7 +57,11 @@ SEC("tp/sched/sched_process_exit")
 int handle_exit(struct trace_event_raw_sched_process_template *ctx) {
     pid_t pid = ctx->pid;
     if(bpf_map_lookup_elem(&processes, &pid) != NULL) {
-        bpf_printk("%d", pid);
+        struct exit_event *event = bpf_ringbuf_reserve(&queue, sizeof(struct exit_event), 0);
+        if(event == NULL)
+            return 0;
+        make_exit_event(event, pid);
+        bpf_ringbuf_submit(event, 0);
     }
     bpf_map_delete_elem(&processes, &pid);
     return 0;

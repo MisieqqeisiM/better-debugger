@@ -8,9 +8,23 @@
 #include <iostream>
 
 #include "tracer.skel.h"
+#include "event.h"
 
 static int buf_process_sample(void *ctx, void *data, size_t len) {
-    std::cout << "\t" << *(int *)data << std::endl;
+    event *e = (event *)data;
+    switch (e->type)
+    {
+        case FORK:
+            std::cout << "fork " << e->fork.parent << "->" << e->fork.child << std::endl;
+        break;
+        case EXIT:
+            std::cout << "exit " << e->exit.proc << std::endl;
+        break;
+        case EXEC:
+            std::cout << "exec " << e->exec.proc << std::endl;
+        break;
+    }
+    
     return 0;
 }
 
