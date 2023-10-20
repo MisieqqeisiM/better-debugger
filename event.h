@@ -3,7 +3,8 @@
 enum event_type {
     FORK,
     EXIT,
-    EXEC
+    EXEC,
+    WRITE
 };
 
 struct fork_event {
@@ -22,11 +23,19 @@ struct exit_event {
     pid_t proc;
 };
 
+struct write_event {
+    enum event_type type;
+    pid_t proc;
+    int size;
+    char data[];
+};
+
 union event {
     enum event_type type;
     struct fork_event fork;
     struct exec_event exec;
     struct exit_event exit;
+    struct write_event write;
 };
 
 inline void make_fork_event(struct fork_event *event, pid_t parent, pid_t child) {
